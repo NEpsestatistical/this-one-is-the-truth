@@ -65,7 +65,7 @@ export async function signUp(input: {
   const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
     email: parsed.data.email,
     password: parsed.data.password,
-    email_confirm: false,
+    email_confirm: true,
     user_metadata: { username: parsed.data.username },
   })
 
@@ -86,21 +86,7 @@ export async function signUp(input: {
 
   console.log('[auth] signUp user created:', userId)
 
-  try {
-    const { error: otpErr } = await supabase.auth.signInWithOtp({
-      email: parsed.data.email,
-      options: { shouldCreateUser: false },
-    })
-    if (otpErr) {
-      console.error('[auth] signInWithOtp error:', otpErr.message)
-    } else {
-      console.log('[auth] OTP sent to:', parsed.data.email)
-    }
-  } catch (otpErr) {
-    console.error('[auth] signInWithOtp threw:', otpErr)
-  }
-
-  return { data: { userId, email: parsed.data.email } }
+  redirect('/login?registered=true')
 }
 
 export async function verifyOtp(input: { email: string; token: string }) {

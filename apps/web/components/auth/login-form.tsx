@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -12,12 +12,19 @@ import { GuestButton } from '@/components/auth/guest-button'
 
 export function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [needsVerification, setNeedsVerification] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get('registered') === 'true') {
+      toast('Account created! You can now sign in.', 'success')
+    }
+  }, [searchParams, toast])
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
