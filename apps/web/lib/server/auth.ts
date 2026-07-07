@@ -20,17 +20,33 @@ export async function createServerClient() {
 }
 
 export async function getSession() {
-  const supabase = await createServerClient()
-  const { data: { session }, error } = await supabase.auth.getSession()
-  if (error) return null
-  return session
+  try {
+    const supabase = await createServerClient()
+    const { data: { session }, error } = await supabase.auth.getSession()
+    if (error) {
+      console.error('[auth] getSession error:', error.message)
+      return null
+    }
+    return session
+  } catch (err) {
+    console.error('[auth] getSession threw:', err instanceof Error ? err.message : String(err))
+    return null
+  }
 }
 
 export async function getCurrentUser() {
-  const supabase = await createServerClient()
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) return null
-  return user
+  try {
+    const supabase = await createServerClient()
+    const { data: { user }, error } = await supabase.auth.getUser()
+    if (error) {
+      console.error('[auth] getCurrentUser error:', error.message)
+      return null
+    }
+    return user
+  } catch (err) {
+    console.error('[auth] getCurrentUser threw:', err instanceof Error ? err.message : String(err))
+    return null
+  }
 }
 
 export async function getCurrentProfile() {
@@ -38,18 +54,28 @@ export async function getCurrentProfile() {
   if (!user) return null
 
   const supabase = await createServerClient()
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  try {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
 
-  return profile
+    if (error) {
+      console.error('[auth] getCurrentProfile error:', error.message)
+      return null
+    }
+    return profile
+  } catch (err) {
+    console.error('[auth] getCurrentProfile threw:', err instanceof Error ? err.message : String(err))
+    return null
+  }
 }
 
 export async function requireAuth() {
   const user = await getCurrentUser()
   if (!user) {
+    console.error('[auth] requireAuth: no user found')
     throw new Error('Unauthorized')
   }
   return user

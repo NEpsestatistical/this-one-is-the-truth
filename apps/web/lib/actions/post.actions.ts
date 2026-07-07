@@ -25,26 +25,34 @@ export async function createPost(input: {
 }) {
   const parsed = CreatePostSchema.safeParse(input)
   if (!parsed.success) {
+    console.error('[post] createPost validation error:', parsed.error.issues)
     return { error: 'Invalid input', issues: parsed.error.issues }
   }
 
   const user = await requireAuth().catch(() => null)
-  if (!user) return { error: 'Unauthorized' }
+  if (!user) {
+    console.error('[post] createPost: unauthorized')
+    return { error: 'Unauthorized' }
+  }
 
   const supabase = await createServerClient()
   const admin = getAdminClient()
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('id, is_banned, is_suspended')
     .eq('id', user.id)
     .single()
 
+  if (profileError) {
+    console.error('[post] createPost profile fetch error:', profileError.message)
+    return { error: 'Failed to verify profile' }
+  }
+
   if (!profile) return { error: 'Profile not found' }
   if (profile.is_banned) return { error: 'Account banned' }
   if (profile.is_suspended) return { error: 'Account suspended' }
 
-  const rateKey = `rate_limit:${user.id}:post:create`
   const { data: postData, error: postError } = await supabase
     .from('posts')
     .insert({
@@ -60,8 +68,11 @@ export async function createPost(input: {
     .single()
 
   if (postError) {
+    console.error('[post] createPost insert error:', postError.message)
     return { error: 'Failed to create post' }
   }
+
+  console.log('[post] createPost created:', postData.id)
 
   if (parsed.data.tags.length > 0) {
     for (const tagName of parsed.data.tags) {
@@ -74,12 +85,15 @@ export async function createPost(input: {
       let tagId: string
       if (existingTag) {
         tagId = existingTag.id
-        await supabase
+        const { error: updateError } = await supabase
           .from('tags')
           .update({ usage_count: existingTag.usage_count + 1 })
           .eq('id', tagId)
+        if (updateError) {
+          console.error('[post] createPost tag update error:', updateError.message)
+        }
       } else {
-        const { data: newTag } = await supabase
+        const { data: newTag, error: insertError } = await supabase
           .from('tags')
           .insert({
             name: tagName,
@@ -87,15 +101,27 @@ export async function createPost(input: {
           })
           .select('id')
           .single()
+        if (insertError) {
+          console.error('[post] createPost tag insert error:', insertError.message)
+          continue
+        }
         if (!newTag) continue
         tagId = newTag.id
       }
 
-      await supabase.from('post_tags').insert({ post_id: postData.id, tag_id: tagId })
+      const { error: ptError } = await supabase.from('post_tags').insert({ post_id: postData.id, tag_id: tagId })
+      if (ptError) {
+        console.error('[post] createPost post_tags error:', ptError.message)
+      }
     }
   }
 
   if (parsed.data.images.length > 0) {
+    if (!admin) {
+      console.error('[post] createPost: admin client not available for image metadata')
+      return { error: 'Image metadata storage unavailable. Post created but images not attached.' }
+    }
+
     const imagesToInsert = parsed.data.images.map((img) => ({
       post_id: postData.id,
       storage_path: img.storage_path,
@@ -108,6 +134,7 @@ export async function createPost(input: {
     }))
     const { error: imagesError } = await admin.from('post_images').insert(imagesToInsert as never)
     if (imagesError) {
+      console.error('[post] createPost image metadata error:', imagesError.message)
       return { error: `Failed to save image metadata: ${imagesError.message}` }
     }
   }
@@ -116,6 +143,7 @@ export async function createPost(input: {
   revalidateTag('feed')
   revalidatePath('/feed')
 
+  console.log('[post] createPost success:', postData.id)
   return { data: { id: postData.id } }
 }
 
@@ -162,7 +190,10 @@ export async function updatePost(
 
   const { error } = await supabase.from('posts').update(updateData).eq('id', postId)
 
-  if (error) return { error: 'Failed to update post' }
+  if (error) {
+    console.error('[post] updatePost error:', error.message)
+    return { error: 'Failed to update post' }
+  }
 
   revalidatePath(`/posts/${postId}`)
   revalidateTag('feed')
@@ -195,7 +226,10 @@ export async function deletePost(postId: string) {
   }
 
   const { error } = await supabase.from('posts').delete().eq('id', postId)
-  if (error) return { error: 'Failed to delete post' }
+  if (error) {
+    console.error('[post] deletePost error:', error.message)
+    return { error: 'Failed to delete post' }
+  }
 
   revalidatePath(`/${user.user_metadata?.username ?? 'profile'}`)
   revalidateTag('feed')
@@ -216,16 +250,28 @@ export async function uploadChartImage(formData: FormData) {
   const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
 
   const admin = getAdminClient()
+  if (!admin) {
+    console.error('[post] uploadChartImage: admin client not available')
+    return { error: 'Upload service unavailable' }
+  }
+
   const { error } = await admin.storage.from('posts').upload(path, file, {
     contentType: file.type,
     upsert: false,
   })
 
-  if (error) return { error: `Upload failed: ${error.message}` }
+  if (error) {
+    console.error('[post] uploadChartImage error:', error.message)
+    return { error: `Upload failed: ${error.message}` }
+  }
+
   return { data: { path } }
 }
 
 export async function incrementViewCount(postId: string) {
   const supabase = await createServerClient()
-  await supabase.rpc('increment_post_view', { post_id: postId })
+  const { error } = await supabase.rpc('increment_post_view', { post_id: postId })
+  if (error) {
+    console.error('[post] incrementViewCount error:', error.message)
+  }
 }

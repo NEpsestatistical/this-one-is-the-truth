@@ -9,7 +9,10 @@ export async function getProfile(username: string) {
     .eq('username', username)
     .single()
 
-  if (error) return null
+  if (error) {
+    console.error('[db] getProfile error:', error.message)
+    return null
+  }
   return data as Profile
 }
 
@@ -21,7 +24,10 @@ export async function getProfileById(id: string) {
     .eq('id', id)
     .single()
 
-  if (error) return null
+  if (error) {
+    console.error('[db] getProfileById error:', error.message)
+    return null
+  }
   return data as Profile
 }
 
@@ -38,7 +44,10 @@ export async function getPost(id: string) {
     .eq('id', id)
     .single()
 
-  if (error) return null
+  if (error) {
+    console.error('[db] getPost error:', error.message)
+    return null
+  }
   return data as Post
 }
 
@@ -61,7 +70,10 @@ export async function getPostsByAuthor(authorId: string, page = 1, pageSize = 20
     .order('published_at', { ascending: false })
     .range(from, to)
 
-  if (error) return []
+  if (error) {
+    console.error('[db] getPostsByAuthor error:', error.message)
+    return []
+  }
   return data as Post[]
 }
 
@@ -83,7 +95,10 @@ export async function getFeedPosts(page = 1, pageSize = 10) {
     .order('published_at', { ascending: false })
     .range(from, to)
 
-  if (error) return []
+  if (error) {
+    console.error('[db] getFeedPosts error:', error.message)
+    return []
+  }
   return data as Post[]
 }
 
@@ -92,10 +107,14 @@ export async function getFeedPostsForUser(userId: string, page = 1, pageSize = 1
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 
-  const { data: following } = await supabase
+  const { data: following, error: followError } = await supabase
     .from('followers')
     .select('following_id')
     .eq('follower_id', userId)
+
+  if (followError) {
+    console.error('[db] getFeedPostsForUser followers error:', followError.message)
+  }
 
   const followingIds = following?.map((f) => f.following_id) ?? []
   followingIds.push(userId)
@@ -114,7 +133,10 @@ export async function getFeedPostsForUser(userId: string, page = 1, pageSize = 1
     .order('published_at', { ascending: false })
     .range(from, to)
 
-  if (error) return []
+  if (error) {
+    console.error('[db] getFeedPostsForUser error:', error.message)
+    return []
+  }
   return data as Post[]
 }
 
@@ -135,7 +157,10 @@ export async function getComments(postId: string) {
     .eq('moderation_status', 'approved')
     .order('created_at', { ascending: true })
 
-  if (error) return []
+  if (error) {
+    console.error('[db] getComments error:', error.message)
+    return []
+  }
   return data as Comment[]
 }
 
@@ -147,7 +172,10 @@ export async function getTags() {
     .order('usage_count', { ascending: false })
     .limit(50)
 
-  if (error) return []
+  if (error) {
+    console.error('[db] getTags error:', error.message)
+    return []
+  }
   return data as Tag[]
 }
 
@@ -156,18 +184,28 @@ export async function getPostsByTag(tagSlug: string, page = 1, pageSize = 20) {
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 
-  const { data: tag } = await supabase
+  const { data: tag, error: tagError } = await supabase
     .from('tags')
     .select('id')
     .eq('slug', tagSlug)
     .single()
 
+  if (tagError) {
+    console.error('[db] getPostsByTag tag lookup error:', tagError.message)
+    return []
+  }
+
   if (!tag) return []
 
-  const { data: postTags } = await supabase
+  const { data: postTags, error: ptError } = await supabase
     .from('post_tags')
     .select('post_id')
     .eq('tag_id', tag.id)
+
+  if (ptError) {
+    console.error('[db] getPostsByTag post_tags error:', ptError.message)
+    return []
+  }
 
   if (!postTags || postTags.length === 0) return []
 
@@ -187,7 +225,10 @@ export async function getPostsByTag(tagSlug: string, page = 1, pageSize = 20) {
     .order('published_at', { ascending: false })
     .range(from, to)
 
-  if (error) return []
+  if (error) {
+    console.error('[db] getPostsByTag posts error:', error.message)
+    return []
+  }
   return data as Post[]
 }
 
@@ -206,7 +247,10 @@ export async function getNotifications(userId: string, page = 1, pageSize = 30) 
     .order('created_at', { ascending: false })
     .range(from, to)
 
-  if (error) return []
+  if (error) {
+    console.error('[db] getNotifications error:', error.message)
+    return []
+  }
   return data as Notification[]
 }
 
@@ -218,7 +262,10 @@ export async function getUnreadNotificationCount(userId: string) {
     .eq('user_id', userId)
     .eq('is_read', false)
 
-  if (error) return 0
+  if (error) {
+    console.error('[db] getUnreadNotificationCount error:', error.message)
+    return 0
+  }
   return count ?? 0
 }
 
@@ -241,7 +288,10 @@ export async function searchPosts(query: string, page = 1, pageSize = 20) {
     .order('published_at', { ascending: false })
     .range(from, to)
 
-  if (error) return []
+  if (error) {
+    console.error('[db] searchPosts error:', error.message)
+    return []
+  }
   return data as Post[]
 }
 
@@ -256,7 +306,10 @@ export async function searchProfiles(query: string, page = 1, pageSize = 20) {
     .textSearch('search_vector', query, { config: 'english' })
     .range(from, to)
 
-  if (error) return []
+  if (error) {
+    console.error('[db] searchProfiles error:', error.message)
+    return []
+  }
   return data as Profile[]
 }
 

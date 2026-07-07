@@ -10,12 +10,12 @@ export const metadata: Metadata = {
   title: 'Feed',
 }
 
-async function FeedContent() {
+async function FeedContent({ tab }: { tab: string }) {
   const session = await getSession()
   const userId = session?.user?.id
 
   let posts
-  if (userId) {
+  if (userId && tab === 'following') {
     posts = await getFeedPostsForUser(userId)
   } else {
     posts = await getFeedPosts()
@@ -24,13 +24,16 @@ async function FeedContent() {
   return <PostList posts={posts} emptyMessage="No posts in your feed yet. Follow analysts to see their analysis!" />
 }
 
-export default function FeedPage() {
+export default async function FeedPage(props: { searchParams?: Promise<{ tab?: string }> }) {
+  const searchParams = await props.searchParams
+  const tab = searchParams?.tab ?? 'for_you'
+
   return (
     <div className="max-w-2xl mx-auto py-4 px-4">
       <FeedTabsWrapper />
       <div className="mt-4">
         <Suspense fallback={<div className="space-y-3"><PostCardSkeleton /><PostCardSkeleton /><PostCardSkeleton /></div>}>
-          <FeedContent />
+          <FeedContent tab={tab} />
         </Suspense>
       </div>
     </div>

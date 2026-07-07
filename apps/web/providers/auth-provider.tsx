@@ -19,14 +19,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const supabase = createBrowserClient()
 
     const getInitialUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
-      setLoading(false)
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        if (error) {
+          console.error('[AuthProvider] getSession error:', error.message)
+        }
+        setUser(session?.user ?? null)
+      } catch (err) {
+        console.error('[AuthProvider] getSession threw:', err instanceof Error ? err.message : String(err))
+        setUser(null)
+      } finally {
+        setLoading(false)
+      }
     }
 
     getInitialUser()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[AuthProvider] auth state change:', event, session?.user?.id)
       setUser(session?.user ?? null)
       setLoading(false)
     })

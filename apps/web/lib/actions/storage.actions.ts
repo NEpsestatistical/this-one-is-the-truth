@@ -10,14 +10,18 @@ export type UploadResult =
 
 export async function uploadPostImage(formData: FormData): Promise<UploadResult> {
   const user = await requireAuth().catch(() => null)
-  if (!user) return { error: 'Unauthorized' }
+  if (!user) {
+    console.error('[storage] uploadPostImage: unauthorized')
+    return { error: 'Unauthorized' }
+  }
 
   const file = formData.get('file') as File | null
   if (!file) return { error: 'No file provided' }
 
   if (file.size === 0) return { error: 'File is empty' }
 
-  console.log('[uploadPostImage] starting upload', {
+  console.log('[storage] uploadPostImage starting', {
+    userId: user.id,
     fileName: file.name,
     fileSize: file.size,
     fileType: file.type,
@@ -26,11 +30,11 @@ export async function uploadPostImage(formData: FormData): Promise<UploadResult>
   try {
     await ensureBucket()
     const meta = await uploadImage(user.id, file)
-    console.log('[uploadPostImage] success', meta.storage_path)
+    console.log('[storage] uploadPostImage success:', meta.storage_path)
     return { data: meta }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Upload failed'
-    console.error('[uploadPostImage] error', message)
+    console.error('[storage] uploadPostImage error:', message)
     return { error: message }
   }
 }
@@ -44,6 +48,7 @@ export async function deletePostImage(storagePath: string): Promise<{ error?: st
     return {}
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Delete failed'
+    console.error('[storage] deletePostImage error:', message)
     return { error: message }
   }
 }

@@ -16,6 +16,10 @@ export async function ensureBucket(): Promise<void> {
   if (bucketEnsured) return
   console.log('[storage] ensureBucket: checking bucket', STORAGE_BUCKETS.POSTS)
   const admin = getAdminClient()
+  if (!admin) {
+    console.warn('[storage] ensureBucket: admin client not available, skipping bucket check')
+    return
+  }
   const { data: buckets, error: listError } = await admin.storage.listBuckets()
   if (listError) {
     console.warn('[storage] ensureBucket: listBuckets error', listError.message)
@@ -41,18 +45,23 @@ export async function uploadImage(
   userId: string,
   file: File,
 ): Promise<ImageMeta> {
-  console.log('[storage] uploadImage: starting', { userId, name: file.name, type: file.type, size: file.size })
+  console.log('[storage] uploadImage starting', { userId, name: file.name, type: file.type, size: file.size })
 
   const validationError = validateImage(file)
   if (validationError) {
-    console.warn('[storage] uploadImage: validation failed', validationError)
+    console.warn('[storage] uploadImage validation failed', validationError)
     throw new Error(validationError)
   }
 
   const storagePath = generateStoragePath(userId, file.name)
   const admin = getAdminClient()
+  if (!admin) {
+    const msg = 'Admin client not available (SUPABASE_SERVICE_ROLE_KEY may not be set)'
+    console.error('[storage] uploadImage:', msg)
+    throw new Error(msg)
+  }
 
-  console.log('[storage] uploadImage: uploading to', storagePath)
+  console.log('[storage] uploadImage uploading to', storagePath)
   const { error: uploadError } = await admin.storage
     .from(STORAGE_BUCKETS.POSTS)
     .upload(storagePath, file, {
@@ -61,11 +70,11 @@ export async function uploadImage(
     })
 
   if (uploadError) {
-    console.error('[storage] uploadImage: upload failed', uploadError.message)
+    console.error('[storage] uploadImage failed', uploadError.message)
     throw new Error(`Upload failed: ${uploadError.message}`)
   }
 
-  console.log('[storage] uploadImage: success', storagePath)
+  console.log('[storage] uploadImage success:', storagePath)
 
   return {
     storage_path: storagePath,
@@ -78,6 +87,11 @@ export async function uploadImage(
 
 export async function deleteImage(storagePath: string): Promise<void> {
   const admin = getAdminClient()
+  if (!admin) {
+    console.error('[storage] deleteImage: admin client not available')
+    throw new Error('Admin client not available')
+  }
+
   const { error } = await admin.storage
     .from(STORAGE_BUCKETS.POSTS)
     .remove([storagePath])
@@ -86,5 +100,3 @@ export async function deleteImage(storagePath: string): Promise<void> {
     throw new Error(`Failed to delete image: ${error.message}`)
   }
 }
-
-

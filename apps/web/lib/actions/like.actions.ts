@@ -5,16 +5,24 @@ import { createServerClient, requireAuth } from '@/lib/server/auth'
 
 export async function toggleLike(postId: string) {
   const user = await requireAuth().catch(() => null)
-  if (!user) return { error: 'Unauthorized' }
+  if (!user) {
+    console.error('[like] toggleLike: unauthorized')
+    return { error: 'Unauthorized' }
+  }
 
   const supabase = await createServerClient()
 
-  const { data: existing } = await supabase
+  const { data: existing, error: checkError } = await supabase
     .from('likes')
     .select('user_id')
     .eq('user_id', user.id)
     .eq('post_id', postId)
     .maybeSingle()
+
+  if (checkError) {
+    console.error('[like] toggleLike check error:', checkError.message)
+    return { error: 'Failed to process like' }
+  }
 
   if (existing) {
     const { error } = await supabase
@@ -23,13 +31,19 @@ export async function toggleLike(postId: string) {
       .eq('user_id', user.id)
       .eq('post_id', postId)
 
-    if (error) return { error: 'Failed to unlike' }
+    if (error) {
+      console.error('[like] toggleLike unlike error:', error.message)
+      return { error: 'Failed to unlike' }
+    }
   } else {
     const { error } = await supabase
       .from('likes')
       .insert({ user_id: user.id, post_id: postId })
 
-    if (error) return { error: 'Failed to like' }
+    if (error) {
+      console.error('[like] toggleLike like error:', error.message)
+      return { error: 'Failed to like' }
+    }
   }
 
   revalidateTag(`post-${postId}`)

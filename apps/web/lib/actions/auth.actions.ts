@@ -11,6 +11,8 @@ export async function signIn(input: { email: string; password: string; returnUrl
     return { error: 'Invalid input', issues: parsed.error.issues }
   }
 
+  console.log('[auth] signIn attempt:', parsed.data.email)
+
   const supabase = await createServerClient()
   const { data, error } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
@@ -18,12 +20,14 @@ export async function signIn(input: { email: string; password: string; returnUrl
   })
 
   if (error) {
+    console.error('[auth] signIn error:', error.message)
     if (error.message.includes('Email not confirmed')) {
       return { error: 'Please verify your email before signing in', needsVerification: true, email: parsed.data.email }
     }
     return { error: 'Invalid email or password' }
   }
 
+  console.log('[auth] signIn success:', data.user?.id)
   redirect(parsed.data.returnUrl ?? '/feed')
 }
 
@@ -38,6 +42,8 @@ export async function signUp(input: {
     return { error: 'Invalid input', issues: parsed.error.issues }
   }
 
+  console.log('[auth] signUp attempt:', parsed.data.email)
+
   const supabase = await createServerClient()
 
   const { data: existingUsername } = await supabase
@@ -51,6 +57,10 @@ export async function signUp(input: {
   }
 
   const adminClient = getAdminClient()
+  if (!adminClient) {
+    console.error('[auth] signUp: admin client not available (SUPABASE_SERVICE_ROLE_KEY missing)')
+    return { error: 'Account creation is temporarily unavailable. Please try again later.' }
+  }
 
   const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
     email: parsed.data.email,
@@ -60,19 +70,21 @@ export async function signUp(input: {
   })
 
   if (authError) {
+    console.error('[auth] admin.createUser error:', authError.message)
     const msg = authError.message.toLowerCase()
     if (msg.includes('already') || msg.includes('exists')) {
       return { error: 'An account with this email already exists' }
     }
-    console.error('admin.createUser error:', authError)
     return { error: 'Failed to create account. Please try again.' }
   }
 
   const userId = authData.user?.id
   if (!userId) {
-    console.error('admin.createUser: no user returned')
+    console.error('[auth] admin.createUser: no user returned')
     return { error: 'Failed to create account. Please try again.' }
   }
+
+  console.log('[auth] signUp user created:', userId)
 
   try {
     const { error: otpErr } = await supabase.auth.signInWithOtp({
@@ -80,10 +92,12 @@ export async function signUp(input: {
       options: { shouldCreateUser: false },
     })
     if (otpErr) {
-      console.error('signInWithOtp error:', otpErr.message)
+      console.error('[auth] signInWithOtp error:', otpErr.message)
+    } else {
+      console.log('[auth] OTP sent to:', parsed.data.email)
     }
   } catch (otpErr) {
-    console.error('signInWithOtp threw:', otpErr)
+    console.error('[auth] signInWithOtp threw:', otpErr)
   }
 
   return { data: { userId, email: parsed.data.email } }
@@ -98,6 +112,8 @@ export async function verifyOtp(input: { email: string; token: string }) {
     return { error: 'Verification code must be 6 digits' }
   }
 
+  console.log('[auth] verifyOtp attempt:', input.email)
+
   const supabase = await createServerClient()
 
   const { data, error } = await supabase.auth.verifyOtp({
@@ -107,6 +123,7 @@ export async function verifyOtp(input: { email: string; token: string }) {
   })
 
   if (error) {
+    console.error('[auth] verifyOtp error:', error.message)
     if (error.message.includes('Token has expired') || error.message.includes('expired')) {
       return { error: 'Code has expired. Request a new one.' }
     }
@@ -118,10 +135,12 @@ export async function verifyOtp(input: { email: string; token: string }) {
     return { error: 'Verification failed. Please try again.' }
   }
 
+  console.log('[auth] verifyOtp success, confirming email:', userId)
+
   try {
     await confirmUserEmail(userId)
   } catch (err) {
-    console.error('Failed to confirm email via admin API:', err)
+    console.error('[auth] Failed to confirm email via admin API:', err)
   }
 
   await supabase.auth.signOut()
@@ -132,6 +151,8 @@ export async function verifyOtp(input: { email: string; token: string }) {
 export async function resendOtp(email: string) {
   if (!email) return { error: 'Email is required' }
 
+  console.log('[auth] resendOtp:', email)
+
   const supabase = await createServerClient()
   const { error } = await supabase.auth.signInWithOtp({
     email,
@@ -139,6 +160,7 @@ export async function resendOtp(email: string) {
   })
 
   if (error) {
+    console.error('[auth] resendOtp error:', error.message)
     return { error: 'Failed to send code. Please try again.' }
   }
 
@@ -150,19 +172,21 @@ export async function sendPasswordReset(input: { email: string }) {
     return { error: 'Email is required' }
   }
 
+  console.log('[auth] sendPasswordReset:', input.email)
+
   const supabase = await createServerClient()
   const { error } = await supabase.auth.resetPasswordForEmail(input.email.trim(), {
     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/reset-password`,
   })
 
   if (error) {
+    console.error('[auth] resetPasswordForEmail error:', error.message)
     if (error.message.toLowerCase().includes('rate limit') || error.message.toLowerCase().includes('over_email_send_rate_limit')) {
       return { error: 'Too many attempts. Please wait a minute and try again.' }
     }
     if (error.message.toLowerCase().includes('email') || error.message.toLowerCase().includes('not found')) {
       return { data: { email: input.email } }
     }
-    console.error('resetPasswordForEmail error:', error)
     return { error: 'Failed to send reset email. Please try again.' }
   }
 
@@ -170,8 +194,15 @@ export async function sendPasswordReset(input: { email: string }) {
 }
 
 export async function createGuestAccount() {
+  console.log('[auth] createGuestAccount')
+
   const supabase = await createServerClient()
   const admin = getAdminClient()
+
+  if (!admin) {
+    console.error('[auth] createGuestAccount: admin client not available')
+    return { error: 'Guest accounts are temporarily unavailable' }
+  }
 
   const guestId = crypto.randomUUID().slice(0, 8)
   const username = `guest_${guestId}`
@@ -186,7 +217,7 @@ export async function createGuestAccount() {
   })
 
   if (authError || !authData.user) {
-    console.error('createGuestAccount error:', authError)
+    console.error('[auth] createGuestAccount error:', authError?.message)
     return { error: 'Failed to create guest account' }
   }
 
@@ -196,7 +227,7 @@ export async function createGuestAccount() {
   })
 
   if (signInError) {
-    console.error('createGuestAccount signIn error:', signInError)
+    console.error('[auth] createGuestAccount signIn error:', signInError.message)
     return { error: 'Failed to sign in as guest' }
   }
 

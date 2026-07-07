@@ -3,6 +3,7 @@ import { SITE_NAME, SITE_DESCRIPTION, SITE_URL } from '@/lib/constants'
 import { geistSans, geistMono, spaceMono } from '@/styles/fonts'
 import { ThemeProvider } from '@/providers/theme-provider'
 import { AuthProvider } from '@/providers/auth-provider'
+import { QueryProvider } from '@/providers/query-provider'
 import { ToastProvider } from '@/components/ui/toast'
 import '@/styles/globals.css'
 
@@ -37,9 +38,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${geistSans.variable} ${geistMono.variable} ${spaceMono.variable} font-sans antialiased`} suppressHydrationWarning>
         <ThemeProvider>
           <AuthProvider>
-            <ToastProvider>
-              {children}
-            </ToastProvider>
+            <QueryProvider>
+              <ToastProvider>
+                {children}
+              </ToastProvider>
+            </QueryProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

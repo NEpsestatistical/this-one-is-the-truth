@@ -1,4 +1,5 @@
 import { ALLOWED_IMAGE_TYPES, LIMITS } from '@/lib/constants'
+import { env } from '@/lib/env'
 
 export interface ImageValidationResult {
   valid: boolean
@@ -18,8 +19,11 @@ export function validateImageFile(file: File): ImageValidationResult {
 }
 
 export function getImageUrl(bucket: string, path: string): string {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  if (!supabaseUrl) return ''
+  const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL
+  if (!supabaseUrl) {
+    console.warn('[image] NEXT_PUBLIC_SUPABASE_URL not available, cannot generate image URL')
+    return ''
+  }
   return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`
 }
 
@@ -29,6 +33,7 @@ export function getImageTransformUrl(
   transform: { width?: number; height?: number; quality?: number },
 ): string {
   const base = getImageUrl(bucket, path)
+  if (!base) return ''
   const params = new URLSearchParams()
   if (transform.width) params.set('width', transform.width.toString())
   if (transform.height) params.set('height', transform.height.toString())

@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
 const envSchema = z.object({
-  NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1).optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   NEXT_PUBLIC_SITE_URL: z.string().url().default('http://localhost:3000'),
   NEXT_PUBLIC_VERCEL_URL: z.string().optional(),
@@ -25,8 +25,14 @@ function parseEnv() {
   })
 
   if (!parsed.success) {
-    console.error('Invalid environment variables:', parsed.error.flatten().fieldErrors)
-    throw new Error('Invalid environment variables')
+    console.error('[env] Invalid environment variables:', JSON.stringify(parsed.error.flatten().fieldErrors))
+    return {
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+      NEXT_PUBLIC_SITE_URL: getSiteUrl(),
+      NEXT_PUBLIC_VERCEL_URL: process.env.NEXT_PUBLIC_VERCEL_URL ?? '',
+    }
   }
 
   return parsed.data
