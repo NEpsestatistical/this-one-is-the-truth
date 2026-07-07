@@ -1,0 +1,45 @@
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public"]
+
+[db]
+port = 54322
+major_version = 15
+
+[analytics]
+enabled = false
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/**"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_confirmations = true
+
+[storage]
+enabled = true
+
+[storage.buckets.avatars]
+public = true
+file_size_limit = 2097152
+allowed_mime_types = ["image/png", "image/jpeg", "image/webp"]
+
+[storage.buckets.covers]
+public = true
+file_size_limit = 5242880
+allowed_mime_types = ["image/png", "image/jpeg", "image/webp"]
+
+[storage.buckets.charts]
+public = true
+file_size_limit = 10485760
+allowed_mime_types = ["image/png", "image/jpeg", "image/webp"]
+
+[storage.buckets.reports]
+public = false
+file_size_limit = 20971520
+allowed_mime_types = ["image/png", "image/jpeg", "image/webp", "application/pdf"]

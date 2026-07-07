@@ -1,0 +1,101 @@
+version: "3.8"
+
+services:
+  studio:
+    image: supabase/studio:latest
+    ports:
+      - "3000:3000"
+    environment:
+      SUPABASE_URL: http://kong:8000
+      STUDIO_PG_META_URL: http://pg-meta:8080
+
+  kong:
+    image: supabase/kong:latest
+    ports:
+      - "8000:8000"
+    environment:
+      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
+    volumes:
+      - ./kong.yml:/etc/kong/kong.yml
+
+  auth:
+    image: supabase/gotrue:latest
+    ports:
+      - "9999:9999"
+    environment:
+      GOTRUE_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+      GOTRUE_DB_DRIVER: postgres
+      DB_CONNECTION_STRING: postgres://supabase_auth_admin:postgres@db:5432/supabase
+      SITE_URL: http://localhost:3000
+      ADDITIONAL_REDIRECT_URLS: http://localhost:3000/**
+      GOTRUE_SMTP_HOST: ""
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+    depends_on:
+      - db
+
+  rest:
+    image: supabase/postgrest:latest
+    ports:
+      - "3001:3000"
+    environment:
+      PGRST_DB_URI: postgres://authenticator:postgres@db:5432/supabase
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+    depends_on:
+      - db
+
+  realtime:
+    image: supabase/realtime:latest
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: supabase_admin
+      DB_PASSWORD: postgres
+      DB_NAME: supabase
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+    depends_on:
+      - db
+
+  storage:
+    image: supabase/storage-api:latest
+    ports:
+      - "5000:5000"
+    environment:
+      ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiJ9.ZopqoI20rJjG6JxHr1L0I0Q0I0Q0I0Q0I0Q0I0Q0I0
+      SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.ZopqoI20rJjG6JxHr1L0I0Q0I0Q0I0Q0I0Q0I0Q0I0
+      POSTGREST_URL: http://rest:3000
+      PGRST_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_PATH: /var/lib/storage
+      TENANT_ID: default
+    volumes:
+      - storage:/var/lib/storage
+    depends_on:
+      - db
+      - rest
+
+  imgproxy:
+    image: darthsim/imgproxy:latest
+    ports:
+      - "5001:5001"
+    environment:
+      IMGPROXY_BIND: ":5001"
+
+  db:
+    image: supabase/postgres:15.1.1.56
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - db:/var/lib/postgresql/data
+
+volumes:
+  db:
+  storage:

@@ -1,0 +1,32 @@
+{
+  "name": "statistical",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Where Elliott Wave Analysts Build Their Reputation",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "start": "turbo start",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "test": "turbo test",
+    "clean": "turbo clean",
+    "db:types": "supabase gen types typescript --linked > supabase/types.ts"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.0",
+    "sharp": "^0.35.3",
+    "turbo": "^2.4.0",
+    "typescript": "^5.7.0"
+  },
+  "packageManager": "pnpm@11.10.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "peerDependencies": {
+    "sharp": "^0.35.3"
+  }
+}

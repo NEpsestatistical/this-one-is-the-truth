@@ -1,0 +1,18 @@
+{
+  "name": "@statistical/eslint-config",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.js",
+  "dependencies": {
+    "@next/eslint-plugin-next": "^15.2.0",
+    "eslint-config-prettier": "^10.0.0",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-tailwindcss": "^3.18.0",
+    "typescript-eslint": "^8.25.0"
+  },
+  "peerDependencies": {
+    "eslint": "^9.0.0",
+    "typescript": "^5.7.0"
+  }
+}
